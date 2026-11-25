@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Release artifacts (built by .github/workflows/release.yml)
+dist/
+
+# Output of workflow_docs.py when run inside the repo
+docs-out/
+
+# Never commit credentials or real workflow exports (they can contain personal data)
+.env
+*.env
+!*.env.example
+!tests/fixtures/**/*.env
+workflows-export/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

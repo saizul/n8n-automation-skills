@@ -1,0 +1,25 @@
+{
+  "name": "n8n-automation-skills",
+  "displayName": "n8n Automation Skills",
+  "version": "0.1.0",
+  "description": "Agent Skills for n8n: workflow design, lint, error handling, webhook security, expressions, self-hosting with queue mode, AI agent workflows and Markdown/Mermaid docs from workflow JSON.",
+  "author": {
+    "name": "Saizul Amin",
+    "url": "https://github.com/saizul"
+  },
+  "homepage": "https://github.com/saizul/n8n-automation-skills",
+  "repository": "https://github.com/saizul/n8n-automation-skills",
+  "license": "MIT",
+  "keywords": [
+    "n8n",
+    "automation",
+    "workflow",
+    "workflow-automation",
+    "webhook",
+    "hmac",
+    "ai-agent",
+    "llm",
+    "docker",
+    "queue-mode"
+  ]
+}

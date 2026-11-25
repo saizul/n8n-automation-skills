@@ -1,0 +1,282 @@
+{
+  "name": "Order sync (legacy)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "orders",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "43382989-aaaa-4bbb-8ccc-701167017768",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "0d6c5a0e-1111-4222-8333-444455556666"
+    },
+    {
+      "parameters": {
+        "jsCode": "const order = $input.item.json.body;\nreturn { json: { id: order.id, total: order.total_price, email: order.email } };"
+      },
+      "id": "59976562-aaaa-4bbb-8ccc-086237391874",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.0.12:8080/api/orders",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer FAKE-TOKEN-for-tests-only-123456"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "71599011-aaaa-4bbb-8ccc-012888247063",
+      "name": "HTTP Request1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.total > 100 and $json.paid == True }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "02586413-aaaa-4bbb-8ccc-046128941003",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://crm.example.com/api/contacts/' + $json.id }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "api_key",
+              "value": "fake-api-key-value-0000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "67103169-aaaa-4bbb-8ccc-012888247063",
+      "name": "Send to CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0123456789",
+          "mode": "id"
+        },
+        "text": "New order {{ $json.id }} from {{ $json.email }}",
+        "otherOptions": {
+          "username": "={{ $('Webhook Trigger').item.json.body.customer }}",
+          "icon_emoji": "={{ $json.first-name }}"
+        }
+      },
+      "id": "83588590-aaaa-4bbb-8ccc-070450213413",
+      "name": "Notify Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        200
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "cred-slack-1",
+          "name": "Slack bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "status",
+              "value": "={{ $node[\"Code\"].json.total }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "74930508-aaaa-4bbb-8ccc-678250046288",
+      "name": "Old Mapper",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        420
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "id": "04436082-aaaa-4bbb-8ccc-376615195049",
+      "name": "Debug",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        440,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Order sync\nTODO {{ clean up }}",
+        "height": 160,
+        "width": 320
+      },
+      "id": "14904439-aaaa-4bbb-8ccc-349691621909",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "id": 1001,
+            "email": "jane@example.com"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send to CRM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Old Mapper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to CRM": {
+      "main": [
+        [
+          {
+            "node": "Notify Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v0"
+  },
+  "versionId": "6b1f5c1e-0000-4000-8000-000000000001",
+  "meta": {
+    "instanceId": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "id": "wf-order-sync-legacy",
+  "tags": []
+}

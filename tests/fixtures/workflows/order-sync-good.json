@@ -1,0 +1,193 @@
+{
+  "name": "Shopify: order created",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "6f1c2a7e-9d3b-4c55-8e21-0b7a9f4d2c11",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "64164041-aaaa-4bbb-8ccc-701167017768",
+      "name": "Receive Shopify order",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "6f1c2a7e-9d3b-4c55-8e21-0b7a9f4d2c11"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "wf-get-secret",
+          "mode": "list",
+          "cachedResultName": "Get signing secret"
+        },
+        "options": {}
+      },
+      "id": "23753518-aaaa-4bbb-8ccc-106996033795",
+      "name": "Load signing secret",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = $('Load signing secret').first().json.secret;\nconst item = $input.first();\nconst raw = Buffer.from(item.binary.data.data, 'base64');\nconst header = item.json.headers['x-shopify-hmac-sha256'] || '';\nconst sentAt = Date.parse(item.json.headers['x-shopify-triggered-at'] || '');\nif (!sentAt || Math.abs(Date.now() - sentAt) > 5 * 60 * 1000) {\n  throw new Error('Stale or missing timestamp');\n}\nconst expected = crypto.createHmac('sha256', secret).update(raw).digest('base64');\nconst ok = header.length === expected.length &&\n  crypto.timingSafeEqual(Buffer.from(header), Buffer.from(expected));\nif (!ok) {\n  throw new Error('Invalid webhook signature');\n}\nreturn [{ json: JSON.parse(raw.toString('utf8')) }];\n"
+      },
+      "id": "27481656-aaaa-4bbb-8ccc-086237391874",
+      "name": "Verify HMAC signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "09562259-aaaa-4bbb-8ccc-825697040425",
+      "name": "Acknowledge receipt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.admin_graphql_api_id ? $vars.SHOP_API_BASE + '/orders/' + $json.id + '.json' : '' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyAccessTokenApi",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "12776375-aaaa-4bbb-8ccc-012888247063",
+      "name": "Fetch order details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        300
+      ],
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "cred-shop-1",
+          "name": "Shopify admin"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "wf-crm-upsert",
+          "mode": "list",
+          "cachedResultName": "CRM: upsert order"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "78334408-aaaa-4bbb-8ccc-106996033795",
+      "name": "Upsert order in CRM",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1000,
+        300
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive Shopify order": {
+      "main": [
+        [
+          {
+            "node": "Load signing secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load signing secret": {
+      "main": [
+        [
+          {
+            "node": "Verify HMAC signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify HMAC signature": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledge receipt": {
+      "main": [
+        [
+          {
+            "node": "Fetch order details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch order details": {
+      "main": [
+        [
+          {
+            "node": "Upsert order in CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "wf-error-handler",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "id": "wf-shopify-order",
+  "tags": [
+    {
+      "name": "shopify"
+    },
+    {
+      "name": "production"
+    }
+  ]
+}

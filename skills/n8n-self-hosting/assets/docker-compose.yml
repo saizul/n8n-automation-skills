@@ -1,0 +1,87 @@
+# n8n in queue mode: main (editor, API, webhooks) + workers + PostgreSQL + Redis.
+#
+#   cp .env.example .env      # fill in N8N_VERSION, N8N_ENCRYPTION_KEY, POSTGRES_PASSWORD, URLs
+#   chmod 600 .env
+#   docker compose config -q && docker compose up -d
+#   docker compose up -d --scale n8n-worker=3   # more workers
+#
+# n8n listens on 127.0.0.1:5678 only; put a reverse proxy with TLS in front
+# (see references/queue-mode.md). Postgres and Redis are not published.
+
+x-n8n: &n8n
+  image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:?set N8N_VERSION in .env}
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    DB_TYPE: postgresdb
+    DB_POSTGRESDB_HOST: postgres
+    DB_POSTGRESDB_PORT: "5432"
+    DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-n8n}
+    DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n}
+    DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    EXECUTIONS_MODE: queue
+    QUEUE_BULL_REDIS_HOST: redis
+    QUEUE_BULL_REDIS_PORT: "6379"
+    QUEUE_HEALTH_CHECK_ACTIVE: "true"
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  logging:
+    driver: local
+    options:
+      max-size: 20m
+      max-file: "5"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-n8n}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-n8n}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  n8n:
+    <<: *n8n
+    ports:
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    healthcheck:
+      # Remove or adapt if your image has no wget.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5678/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  n8n-worker:
+    <<: *n8n
+    command: ["worker", "--concurrency=10"]
+    # Workers expose /healthz on 5678 inside the container (QUEUE_HEALTH_CHECK_ACTIVE).
+
+volumes:
+  db_data:
+  redis_data:
+  n8n_data:

@@ -1,0 +1,168 @@
+{
+  "name": "Support chatbot (prototype)",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "id": "57511174-aaaa-4bbb-8ccc-983911197960",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "a1b2c3d4-0000-4000-8000-00000000c4a7"
+    },
+    {
+      "parameters": {
+        "options": {
+          "maxIterations": 50
+        }
+      },
+      "id": "24208701-aaaa-4bbb-8ccc-023091269989",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list"
+        },
+        "options": {
+          "temperature": 1.4
+        }
+      },
+      "id": "73469485-aaaa-4bbb-8ccc-370862874624",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        120,
+        520
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "cred-oa-1",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 100
+      },
+      "id": "75909939-aaaa-4bbb-8ccc-973705299234",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        260,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.example.com/v1/customers",
+        "toolDescription": ""
+      },
+      "id": "85113333-aaaa-4bbb-8ccc-565049848520",
+      "name": "HTTP Request",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Deletes a customer record",
+        "workflowId": {
+          "__rl": true,
+          "value": "wf-delete-customer",
+          "mode": "list"
+        }
+      },
+      "id": "88231578-aaaa-4bbb-8ccc-620190775644",
+      "name": "Delete customer",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        540,
+        520
+      ]
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete customer": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "wf-support-bot"
+}

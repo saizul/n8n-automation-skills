@@ -1,0 +1,4 @@
+pytest>=8
+ruff>=0.6
+# Optional: lets the n8n-self-hosting tests parse the compose YAML asset.
+pyyaml>=6

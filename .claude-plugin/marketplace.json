@@ -1,0 +1,36 @@
+{
+  "name": "n8n-automation-skills",
+  "description": "Agent Skills for designing, debugging and securing n8n workflows.",
+  "owner": {
+    "name": "Saizul Amin",
+    "url": "https://github.com/saizul"
+  },
+  "plugins": [
+    {
+      "name": "n8n-automation-skills",
+      "source": "./",
+      "description": "n8n workflow design, linting, error handling, webhook security, expressions, self-hosting (Docker, queue mode), AI agents and workflow docs.",
+      "category": "automation",
+      "tags": [
+        "n8n",
+        "automation",
+        "workflow",
+        "webhook",
+        "ai-agent",
+        "docker",
+        "self-hosting",
+        "no-code"
+      ],
+      "skills": [
+        "./skills/n8n-workflow-design",
+        "./skills/n8n-workflow-lint",
+        "./skills/n8n-error-handling",
+        "./skills/n8n-webhook-security",
+        "./skills/n8n-expressions-cheatsheet",
+        "./skills/n8n-self-hosting",
+        "./skills/n8n-ai-agent-workflows",
+        "./skills/n8n-workflow-docs"
+      ]
+    }
+  ]
+}

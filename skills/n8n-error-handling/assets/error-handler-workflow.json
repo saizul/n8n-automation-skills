@@ -1,0 +1,117 @@
+{
+  "name": "Alerts: workflow failed",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "5b0c9d36-1d1e-4b1f-9a51-000000000001",
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "text",
+              "value": "=:rotating_light: *{{ $json.workflow.name }}* failed\nNode: {{ $json.execution?.lastNodeExecuted ?? $json.trigger?.error?.node?.name ?? 'trigger' }}\nError: {{ ($json.execution?.error?.message ?? $json.trigger?.error?.message ?? 'unknown').slice(0, 500) }}\nMode: {{ $json.execution?.mode ?? 'trigger' }}{{ $json.execution?.retryOf ? ' (retry of ' + $json.execution.retryOf + ')' : '' }}\n{{ $json.execution?.url ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "f2",
+              "name": "workflow_id",
+              "value": "={{ $json.workflow.id }}",
+              "type": "string"
+            },
+            {
+              "id": "f3",
+              "name": "execution_id",
+              "value": "={{ $json.execution?.id ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5b0c9d36-1d1e-4b1f-9a51-000000000002",
+      "name": "Build alert message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/REPLACE/WITH/YOUR-INCOMING-WEBHOOK",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.text }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "5b0c9d36-1d1e-4b1f-9a51-000000000003",
+      "name": "Send alert to chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "content": "## Alerts: workflow failed\nSet this workflow as **Error workflow** in the settings of every production workflow.\nReplace the URL in *Send alert to chat* with your Slack/Teams/Discord incoming webhook, or swap the node for Slack/Email/Telegram.\nError Trigger runs only for production (not manual) executions.",
+        "height": 220,
+        "width": 420
+      },
+      "id": "5b0c9d36-1d1e-4b1f-9a51-000000000004",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -260
+      ]
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Build alert message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build alert message": {
+      "main": [
+        [
+          {
+            "node": "Send alert to chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

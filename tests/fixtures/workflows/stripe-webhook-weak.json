@@ -1,0 +1,151 @@
+{
+  "name": "Stripe: invoice paid",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stripe",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "79125651-aaaa-4bbb-8ccc-701167017768",
+      "name": "Stripe events",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "5e1f0000-0000-4000-8000-0000000057e1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst sig = $json.headers['stripe-signature'];\nconst payload = JSON.stringify($json.body);\nconst expected = crypto.createHmac('sha256', 'whsec_FAKE_for_tests').update(payload).digest('hex');\nif (!sig.includes(expected)) {\n  throw new Error('bad signature');\n}\nreturn $input.all();\n"
+      },
+      "id": "60817743-aaaa-4bbb-8ccc-086237391874",
+      "name": "Check signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "invoice.paid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "86527560-aaaa-4bbb-8ccc-578849744764",
+      "name": "Route by event type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE invoices SET paid_at = now() WHERE stripe_id = $1",
+        "options": {
+          "queryReplacement": "={{ $json.body.data.object.id }}"
+        }
+      },
+      "id": "45641220-aaaa-4bbb-8ccc-761115817845",
+      "name": "Mark invoice paid",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-1",
+          "name": "App DB"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ JSON.stringify($json.body) }}",
+        "secret": "whsec_FAKE_for_tests",
+        "dataPropertyName": "sig"
+      },
+      "id": "41158577-aaaa-4bbb-8ccc-057301837960",
+      "name": "Hmac check",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        220,
+        520
+      ],
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Stripe events": {
+      "main": [
+        [
+          {
+            "node": "Check signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check signature": {
+      "main": [
+        [
+          {
+            "node": "Route by event type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by event type": {
+      "main": [
+        [
+          {
+            "node": "Mark invoice paid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "wf-error-handler"
+  },
+  "id": "wf-stripe-invoice"
+}

@@ -1,0 +1,48 @@
+name: New skill proposal
+description: Propose a new skill (or offer to write one)
+labels: ["new skill"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Good skills solve one recurring n8n task end to end, are safe by default (read-only,
+        changes confirmed by the user, no secrets printed), and include a tested helper script
+        when that adds reliability. See CONTRIBUTING.md and templates/skill/SKILL.md.
+  - type: input
+    id: name
+    attributes:
+      label: Skill name
+      description: lowercase-with-hyphens, max 64 characters
+      placeholder: "n8n-workflow-diff"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What task does it handle, and when should the agent use it?
+      description: Example user requests and error messages that should trigger it.
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Proposed workflow
+      description: Steps, exact commands, decision points, what the output looks like.
+  - type: textarea
+    id: script
+    attributes:
+      label: Helper script (optional)
+      description: What would a deterministic script check or generate from workflow JSON? Inputs, outputs, exit codes.
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety
+      description: What could go wrong for a production n8n instance or its data, and how the skill prevents it.
+    validations:
+      required: true
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to write this skill

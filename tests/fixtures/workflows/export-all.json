@@ -1,0 +1,297 @@
+[
+  {
+    "name": "Nightly sales report",
+    "id": "wf-nightly-report",
+    "active": true,
+    "settings": {
+      "executionOrder": "v1",
+      "errorWorkflow": "wf-does-not-exist",
+      "timezone": "Asia/Dhaka"
+    },
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "triggerAtHour": 6
+              }
+            ]
+          }
+        },
+        "id": "92139478-aaaa-4bbb-8ccc-947976832916",
+        "name": "Every day at 06:00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT count(*) AS orders, sum(total) AS revenue FROM orders WHERE created_at >= current_date - 1 AND created_at < current_date",
+          "options": {}
+        },
+        "id": "34114644-aaaa-4bbb-8ccc-761115817845",
+        "name": "Yesterday's orders",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          220,
+          300
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "cred-pg-1",
+            "name": "App DB"
+          }
+        },
+        "retryOnFail": true
+      },
+      {
+        "parameters": {
+          "fromEmail": "reports@example.com",
+          "toEmail": "team@example.com",
+          "subject": "=Sales {{ $now.minus({ days: 1 }).toFormat('yyyy-LL-dd') }}",
+          "emailFormat": "text",
+          "text": "=Orders: {{ $json.orders }}\nRevenue: {{ $json.revenue }}",
+          "options": {}
+        },
+        "id": "98617128-aaaa-4bbb-8ccc-872801997255",
+        "name": "Email the team",
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          440,
+          300
+        ],
+        "credentials": {
+          "smtp": {
+            "id": "cred-smtp-1",
+            "name": "SMTP"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Every day at 06:00": {
+        "main": [
+          [
+            {
+              "node": "Yesterday's orders",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Yesterday's orders": {
+        "main": [
+          [
+            {
+              "node": "Email the team",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "name": "Contacts: batch import",
+    "id": "wf-batch-import",
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "errorWorkflow": "wf-error-handler"
+    },
+    "nodes": [
+      {
+        "parameters": {},
+        "id": "84282053-aaaa-4bbb-8ccc-323748540460",
+        "name": "Start import",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "url": "https://files.example.com/exports/contacts.csv",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "text"
+              }
+            }
+          }
+        },
+        "id": "85085825-aaaa-4bbb-8ccc-012888247063",
+        "name": "Read contacts CSV",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          200,
+          300
+        ],
+        "retryOnFail": true
+      },
+      {
+        "parameters": {
+          "batchSize": 50,
+          "options": {}
+        },
+        "id": "70490003-aaaa-4bbb-8ccc-155756698512",
+        "name": "Loop over batches",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          400,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "contact",
+          "operation": "upsert",
+          "email": "={{ $json.email }}",
+          "additionalFields": {}
+        },
+        "id": "59139697-aaaa-4bbb-8ccc-929548676831",
+        "name": "Upsert contacts",
+        "type": "n8n-nodes-base.hubspot",
+        "typeVersion": 2.1,
+        "position": [
+          600,
+          400
+        ],
+        "credentials": {
+          "hubspotAppToken": {
+            "id": "cred-hs-1",
+            "name": "HubSpot"
+          }
+        },
+        "retryOnFail": true,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "amount": 1
+        },
+        "id": "21547077-aaaa-4bbb-8ccc-497804843518",
+        "name": "Wait 1s (rate limit)",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          800,
+          400
+        ],
+        "webhookId": "wait-0001"
+      },
+      {
+        "parameters": {
+          "operation": "insert",
+          "schema": {
+            "__rl": true,
+            "value": "public",
+            "mode": "list"
+          },
+          "table": {
+            "__rl": true,
+            "value": "dead_letter",
+            "mode": "list"
+          },
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {}
+          },
+          "options": {}
+        },
+        "id": "73025759-aaaa-4bbb-8ccc-761115817845",
+        "name": "Record failed contact",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          800,
+          560
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "cred-pg-1",
+            "name": "App DB"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Start import": {
+        "main": [
+          [
+            {
+              "node": "Read contacts CSV",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read contacts CSV": {
+        "main": [
+          [
+            {
+              "node": "Loop over batches",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop over batches": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Upsert contacts",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Upsert contacts": {
+        "main": [
+          [
+            {
+              "node": "Wait 1s (rate limit)",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Record failed contact",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait 1s (rate limit)": {
+        "main": [
+          [
+            {
+              "node": "Loop over batches",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    }
+  }
+]

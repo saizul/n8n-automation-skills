@@ -1,0 +1,95 @@
+{
+  "name": "Error handler: Slack alert",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "56476180-aaaa-4bbb-8ccc-366895908498",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "m1",
+              "name": "text",
+              "value": "=:rotating_light: *{{ $json.workflow.name }}* failed at node `{{ $json.execution.lastNodeExecuted }}`: {{ $json.execution.error.message }}\n{{ $json.execution.url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "93006277-aaaa-4bbb-8ccc-678250046288",
+      "name": "Format alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0ALERTS00",
+          "mode": "id"
+        },
+        "text": "={{ $json.text }}",
+        "otherOptions": {}
+      },
+      "id": "40978970-aaaa-4bbb-8ccc-070450213413",
+      "name": "Post to #alerts",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "cred-slack-1",
+          "name": "Slack bot"
+        }
+      },
+      "retryOnFail": true
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format alert": {
+      "main": [
+        [
+          {
+            "node": "Post to #alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "wf-error-handler"
+}

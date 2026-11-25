@@ -1,0 +1,46 @@
+name: Bug report
+description: A script crashed, reported a wrong finding, or a skill gave wrong or unsafe advice
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste secrets, credential exports, encryption keys or workflows with real customer data.**
+        Reduce the workflow to the few nodes that reproduce the problem and replace values with fakes.
+  - type: dropdown
+    id: skill
+    attributes:
+      label: Skill
+      options:
+        - n8n-workflow-design
+        - n8n-workflow-lint
+        - n8n-error-handling
+        - n8n-webhook-security
+        - n8n-expressions-cheatsheet
+        - n8n-self-hosting
+        - n8n-ai-agent-workflows
+        - n8n-workflow-docs
+        - validator / repository tooling
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: The command you ran, its output, and (for wrong findings) a minimal redacted workflow JSON.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "n8n 2.4.1 self-hosted, Python 3.12, Claude Code / Codex CLI"
+    validations:
+      required: true
