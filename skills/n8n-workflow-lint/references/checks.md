@@ -4,6 +4,7 @@
 | --- | --- | --- | --- |
 | `credentials.hardcoded` | high | Secrets in parameters end up in exports, backups, git, execution data and screenshots | Rotate; use a credential (Header Auth, Query Auth, Bearer Auth, or the service's predefined type) |
 | `connections.dangling` | high | A connection names a node that no longer exists (edited JSON, bad merge) | Reconnect in the editor or fix the name in `connections` |
+| `webhook.path_conflict` | high | Two Webhook nodes (in one workflow or across the files linted together) register the same HTTP method and path; n8n refuses to activate the second workflow | Give each Webhook a unique path or method; lint the whole export folder to catch clashes. `--no-cross-workflow` turns it off |
 | `node.duplicate_name` | high | n8n requires unique names; imports misbehave | Rename one node |
 | `settings.error_workflow` | medium (info for manual-only) | Production failures are visible only in the executions list | Set Workflow settings > Error workflow |
 | `url.internal` | medium | `localhost`, RFC 1918 IPs, `.local` and bare container names break when moved between environments | Base URL in a credential, `$vars`, or a config sub-workflow |

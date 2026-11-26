@@ -1,6 +1,6 @@
 ---
 name: n8n-workflow-lint
-description: Lint exported n8n workflow JSON with a deterministic script - default node names ("HTTP Request1", "Code"), missing error workflow, hard-coded API keys, tokens and Authorization headers (values never printed), hard-coded/internal/plain-HTTP URLs, disabled, unused and unreachable nodes, connections to renamed nodes, duplicate names, overly long chains, huge workflows, pinned data left in exports and legacy execution order. Works on single files, `n8n export:workflow --all` output and folders, with JSON output and CI exit codes. Use when the user shares a workflow .json, asks to review, clean up or "productionize" an n8n workflow, wants a pre-commit/CI check for workflows in git, or before activating or handing over a workflow.
+description: Lint exported n8n workflow JSON with a deterministic script - default node names ("HTTP Request1", "Code"), missing error workflow, hard-coded API keys, tokens and Authorization headers (values never printed), hard-coded/internal/plain-HTTP URLs, disabled, unused and unreachable nodes, connections to renamed nodes, duplicate names, Webhook nodes that clash on the same method and path across workflows, overly long chains, huge workflows, pinned data left in exports and legacy execution order. Works on single files, `n8n export:workflow --all` output and folders, with JSON output and CI exit codes. Use when the user shares a workflow .json, asks to review, clean up or "productionize" an n8n workflow, wants a pre-commit/CI check for workflows in git, or before activating or handing over a workflow.
 license: MIT
 compatibility: Python 3.8+ standard library only. Works offline on exported JSON; never connects to n8n.
 metadata:
@@ -53,7 +53,9 @@ Paths below are relative to this skill's folder (in Claude Code: `${CLAUDE_SKILL
    [references/checks.md](references/checks.md)):
    1. `credentials.hardcoded`: tell the user to rotate the secret now (it is in every
       export, backup and git commit) and move it into a credential.
-   2. `connections.dangling`, `node.duplicate_name`: the workflow is broken or will break.
+   2. `connections.dangling`, `node.duplicate_name`, `webhook.path_conflict`: the workflow
+      is broken or will fail to activate. Lint the whole export folder at once so clashes
+      between workflows are found.
    3. `settings.error_workflow`: failures are silent; set up alerts (`n8n-error-handling`).
    4. `url.internal`, `url.plain_http`: environment coupling and plaintext traffic.
    5. Hygiene: unused/unreachable/disabled nodes, default names, pinned data, long chains.

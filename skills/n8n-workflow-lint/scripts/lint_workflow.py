@@ -5,7 +5,9 @@ Checks: default (unnamed) node names, missing error workflow, hard-coded
 credentials and tokens, hard-coded / plain-HTTP / internal URLs, disabled
 nodes, unused and unreachable nodes, connections to missing nodes, duplicate
 names, long node chains, very large workflows, pinned data left in the export,
-legacy execution order and very long Code nodes.
+legacy execution order and very long Code nodes. Across all inputs it also
+reports Webhook nodes that register the same HTTP method and path (n8n refuses
+to activate the second workflow).
 
 Input: one or more workflow files or directories. Accepts a single workflow
 object, the array written by ``n8n export:workflow --all``, or an API response
@@ -50,6 +52,7 @@ HTTP_TYPES = {
     "n8n-nodes-base.httpRequestTool",
 }
 STICKY = "n8n-nodes-base.stickyNote"
+WEBHOOK = "n8n-nodes-base.webhook"
 INTERNAL_HOST_RE = re.compile(
     r"^https?://(localhost|127\.|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?|[^/:]+\.local\b|[^/:.]+[:/])",
     re.I,
@@ -455,6 +458,55 @@ def _secret_findings(name: str, typ: str, params: dict) -> list[Finding]:
     return out
 
 
+def webhook_routes(node: dict) -> list[tuple[str, str]]:
+    """Return the (METHOD, path) pairs a Webhook node registers; [] if none apply."""
+    if node.get("type") != WEBHOOK or node.get("disabled"):
+        return []
+    params = node.get("parameters") or {}
+    path = params.get("path", node.get("webhookId", ""))
+    if not isinstance(path, str) or not path.strip("/") or path.startswith("="):
+        return []
+    if params.get("multipleMethods"):
+        methods = params.get("httpMethod") or ["GET", "POST"]
+        if not isinstance(methods, list):
+            methods = [methods]
+    else:
+        methods = [params.get("httpMethod") or "GET"]
+    path = re.sub(r"/{2,}", "/", path.strip().strip("/"))
+    return [(str(m).upper(), path) for m in methods if isinstance(m, str)]
+
+
+def webhook_conflicts(workflows: list[tuple[str, dict]]) -> dict[str, list[Finding]]:
+    """Find Webhook nodes (in one or several workflows) that share an HTTP method and path.
+
+    n8n registers production webhooks by method + path, so a second active workflow with
+    the same route fails to activate. Returns findings keyed by workflow label.
+    """
+    routes: dict[tuple[str, str], list[tuple[str, str, str]]] = {}
+    for label, wf in workflows:
+        for node in wf.get("nodes") or []:
+            if not isinstance(node, dict):
+                continue
+            for route in webhook_routes(node):
+                routes.setdefault(route, []).append((label, wf.get("name", ""), node.get("name", "?")))
+    out: dict[str, list[Finding]] = {}
+    for (method, path), users in sorted(routes.items()):
+        if len(users) < 2:
+            continue
+        for label, _, node_name in users:
+            others = [f"'{n}' in {w or lb}" for lb, w, n in users if (lb, n) != (label, node_name)]
+            out.setdefault(label, []).append(
+                Finding(
+                    "webhook.path_conflict",
+                    "high",
+                    node_name,
+                    f"{method} /{path} is also registered by " + ", ".join(others),
+                    "give each Webhook node a unique path (or method); only one active workflow can own a route",
+                )
+            )
+    return out
+
+
 # --------------------------------------------------------------------------- CLI
 
 
@@ -470,6 +522,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-chain", type=int, default=20, help="longest allowed node chain (default 20)")
     p.add_argument("--max-nodes", type=int, default=50, help="largest allowed workflow (default 50)")
     p.add_argument("--ignore", action="append", default=[], help="check id or prefix to skip (repeatable)")
+    p.add_argument(
+        "--no-cross-workflow",
+        action="store_true",
+        help="skip checks that compare workflows with each other (webhook.path_conflict)",
+    )
     args = p.parse_args(argv)
     try:
         workflows = load_workflows(args.paths)
@@ -479,10 +536,14 @@ def main(argv: list[str] | None = None) -> int:
     min_rank = SEVERITIES.index(args.min_severity)
     report = []
     worst = -1
+    conflicts = {} if args.no_cross_workflow else webhook_conflicts(workflows)
+    order = {s: i for i, s in enumerate(reversed(SEVERITIES))}
     for label, wf in workflows:
+        found = lint(wf, args.max_chain, args.max_nodes) + conflicts.get(label, [])
+        found.sort(key=lambda f: (order[f.severity], f.check, f.node))
         fs = [
             f
-            for f in lint(wf, args.max_chain, args.max_nodes)
+            for f in found
             if SEVERITIES.index(f.severity) >= min_rank and not any(f.check.startswith(i) for i in args.ignore)
         ]
         worst = max([worst, *(SEVERITIES.index(f.severity) for f in fs)])
