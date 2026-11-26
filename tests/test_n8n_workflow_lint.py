@@ -188,3 +188,53 @@ def test_cli(tmp_path):
     (tmp_path / "broken.json").write_text("{nope")
     assert run_script(SKILL, SCRIPT, str(tmp_path / "broken.json")).returncode == 2
     assert run_script(SKILL, SCRIPT, "--help").returncode == 0
+
+
+def _hook(name, path, method=None, **extra):
+    params = {"path": path}
+    if method is not None:
+        params["httpMethod"] = method
+    params.update(extra.pop("params", {}))
+    return {"name": name, "type": "n8n-nodes-base.webhook", "parameters": params, **extra}
+
+
+def test_webhook_conflict_across_workflows():
+    a = make_wf([_hook("Order created", "orders/new", "POST")], name="Orders A")
+    b = make_wf([_hook("New order", "/orders/new/", "POST")], name="Orders B")
+    c = make_wf([_hook("List orders", "orders/new", "GET")], name="Orders C")
+    out = mod.webhook_conflicts([("a.json", a), ("b.json", b), ("c.json", c)])
+    assert set(out) == {"a.json", "b.json"}
+    (fa,) = out["a.json"]
+    assert fa.check == "webhook.path_conflict"
+    assert fa.severity == "high"
+    assert fa.node == "Order created"
+    assert "POST /orders/new" in fa.title
+    assert "'New order' in Orders B" in fa.title
+
+
+def test_webhook_conflict_within_one_workflow_and_default_method():
+    wf = make_wf([_hook("Hook one", "intake"), _hook("Hook two", "intake", "GET")])
+    out = mod.webhook_conflicts([("wf.json", wf)])
+    assert {f.node for f in out["wf.json"]} == {"Hook one", "Hook two"}
+
+
+def test_webhook_conflict_multiple_methods_and_skips():
+    multi = make_wf([_hook("Both", "sync", ["GET", "POST"], params={"multipleMethods": True})])
+    post = make_wf([_hook("Post only", "sync", "POST")])
+    disabled = make_wf([_hook("Old", "sync", "POST", disabled=True)])
+    dynamic = make_wf([_hook("Expr", "={{ $vars.path }}", "POST")])
+    out = mod.webhook_conflicts([("m", multi), ("p", post), ("d", disabled), ("e", dynamic)])
+    assert set(out) == {"m", "p"}
+    assert "POST /sync" in out["m"][0].title
+
+
+def test_webhook_conflict_cli(tmp_path):
+    (tmp_path / "a.json").write_text(json.dumps(make_wf([_hook("Intake", "lead", "POST")], name="A")))
+    (tmp_path / "b.json").write_text(json.dumps(make_wf([_hook("Lead", "lead", "POST")], name="B")))
+    r = run_script(SKILL, SCRIPT, str(tmp_path), "--json", "--fail-on", "high")
+    assert r.returncode == 1
+    data = json.loads(r.stdout)
+    hits = [f for r_ in data["files"] for f in r_["findings"] if f["check"] == "webhook.path_conflict"]
+    assert len(hits) == 2
+    r = run_script(SKILL, SCRIPT, str(tmp_path), "--json", "--no-cross-workflow")
+    assert "webhook.path_conflict" not in r.stdout

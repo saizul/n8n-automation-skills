@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `n8n-workflow-lint`: `webhook.path_conflict` (high) reports Webhook nodes that register
+  the same HTTP method and path, within one workflow or across all files linted together
+  (n8n will not activate the second one). Handles multi-method webhooks, ignores disabled
+  nodes and expression paths; `--no-cross-workflow` turns the check off.
+
 ## [0.1.0] - 2026-11-25
 
 ### Added
